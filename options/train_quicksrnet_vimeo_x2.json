@@ -1,0 +1,81 @@
+{
+  "task": "quicksrnet_vimeo_x2"   //  quick task tag
+  , "model": "plain"              // "plain" for L→H mapping
+  , "gpu_ids": [0]
+  , "dist": true
+
+  , "scale": 2                    // upscaling factor
+  , "n_channels": 1               // 1 for Y-channel (grayscale), 3 for RGB
+  , "sigma": 0                    // unused for SR
+  , "sigma_test": 0               // unused for SR
+
+  , "merge_bn": false
+  , "merge_bn_startpoint": 400000
+
+  , "path": {
+    "root": "superresolution"
+    , "pretrained_netG": null
+    , "pretrained_netE": null
+  }
+
+  , "datasets": {
+    "train": {
+      "name": "vimeo90k_train"
+      , "dataset_type": "sr"              // SR dataset: bicubic downscale H→L on-the-fly
+      , "dataroot_H": "trainsets/trainH"  // symlink → vimeo_sr/train
+      , "dataroot_L": null                // null → online bicubic downsampling
+      , "H_size": 128                     // patch size (will be cropped from 256×448→128×128)
+      , "dataloader_shuffle": true
+      , "dataloader_num_workers": 8
+      , "dataloader_batch_size": 64       // large batch for small model
+    }
+    , "test": {
+      "name": "vimeo90k_val"
+      , "dataset_type": "sr"              // SR dataset
+      , "dataroot_H": "testsets/vimeo_sr_val"  // symlink → vimeo_sr/val_small
+      , "dataroot_L": null
+    }
+  }
+
+  , "netG": {
+    "net_type": "quicksrnet"          // registered network
+    , "in_nc": 1                      // Y-channel input
+    , "out_nc": 1                     // Y-channel output
+    , "nc": 64                        // large variant channels
+    , "nb": 11                        // large variant intermediate layers
+    , "scale": 2                      // x2 SR
+    , "act_mode": "R"                 // ReLU (ONNX中看到的是导出时转换的Clip)
+
+    , "init_type": "kaiming_uniform"  // good default for ReLU conv nets
+    , "init_bn_type": "uniform"
+    , "init_gain": 0.2
+  }
+
+  , "train": {
+    "G_lossfn_type": "l1"             // L1 loss works well for SR
+    , "G_lossfn_weight": 1.0
+
+    , "E_decay": 0.999                // EMA for smoother inference
+
+    , "G_optimizer_type": "adam"
+    , "G_optimizer_lr": 1e-3          // higher LR for small model
+    , "G_optimizer_betas": [0.9, 0.99]
+    , "G_optimizer_wd": 0
+    , "G_optimizer_clipgrad": null
+    , "G_optimizer_reuse": false
+
+    , "G_scheduler_type": "MultiStepLR"
+    , "G_scheduler_milestones": [200000, 400000, 600000, 800000]
+    , "G_scheduler_gamma": 0.5
+
+    , "G_regularizer_orthstep": null
+    , "G_regularizer_clipstep": null
+
+    , "G_param_strict": true
+    , "E_param_strict": true
+
+    , "checkpoint_test": 5000
+    , "checkpoint_save": 10000
+    , "checkpoint_print": 200
+  }
+}
